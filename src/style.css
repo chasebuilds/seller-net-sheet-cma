@@ -114,7 +114,7 @@ table.grid th.l, table.grid td.l { text-align: left } table.grid td.adjl { font-
 
 #print-root { display: none }
 @media (max-width: 900px) {
-  .cols { grid-template-columns: 1fr } .colout { position: static; max-height: none }
+  .cols { grid-template-columns: minmax(0, 1fr) } .colout { position: static; max-height: none }
   .grid3, .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)) } .charts { grid-template-columns: 1fr } .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)) }
   .bar { border-radius: 24px } .tabs { margin: 0 }
 }
@@ -131,3 +131,4 @@ table.grid th.l, table.grid td.l { text-align: left } table.grid td.adjl { font-
   .pfoot { left: 0; right: 0; bottom: 0 }
   .sheet-page:not(:has(.pfoot)) { min-height: 0; height: auto }
 }
+.cols > * { min-width: 0 }

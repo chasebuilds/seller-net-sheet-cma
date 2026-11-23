@@ -5,7 +5,7 @@ describe('save and load', () => {
   it('round trips through JSON', () => {
     const s = sampleState();
     const back = normalizeState(JSON.parse(JSON.stringify(s)));
-    expect('state' in back && back.state.net.scenarios[1]?.price).toBe(385000);
+    expect('state' in back && back.state.net.scenarios[1]?.price).toBe(374000);
     expect('state' in back && back.state.cma.comps).toHaveLength(14);
   });
   it('rejects wrong shapes with a plain message', () => {

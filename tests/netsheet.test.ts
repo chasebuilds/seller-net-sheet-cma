@@ -69,12 +69,15 @@ describe('net sheet, hand-checked', () => {
     const seller = computeNet({ ...net, closingDayOwner: 'seller' });
     expect(seller.prorations[0]!.result.sellerDays).toBe(192);
   });
-  it('the invented sample, likely sale, by hand', () => {
-    // Costs at 385,000: 9,240 + 8,470 + 3,000 + 1,150 + 650 + 125 + 423.50 + 575 + 1,800 + 0 = 25,433.50
+  it('the invented sample, likely sale $374,000, by hand', () => {
+    // Percent lines at 374,000: 2.4% = 8,976.00; 2.2% = 8,228.00; transfer $1.10 per $1,000 = 411.40
+    // Flat lines: 3,000 + 1,150 + 650 + 125 + 575 + 1,800 + 0 = 7,300
+    // Costs = 8,976 + 8,228 + 411.40 + 7,300 = 24,915.40
     // Prorations: tax unpaid 73 days x $9 = -657.00, HOA paid, 14 of 31 days seller = 54.19, buyer credit 65.81, total -591.19
+    // Net = 374,000 - 260,710.55 (payoffs) - 24,915.40 - 591.19 = 87,782.86
     const s = computeNet(sampleState().net).scenarios[1]!;
-    expect(s.costTotal).toBe(25433.5);
+    expect(s.costTotal).toBe(24915.4);
     expect(s.prorationNet).toBe(-591.19);
-    expect(s.net).toBe(98264.76);
+    expect(s.net).toBe(87782.86);
   });
 });

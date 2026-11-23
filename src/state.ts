@@ -34,9 +34,9 @@ export function sampleState(): State {
     },
     net: {
       scenarios: [
-        { name: 'List price', price: 395000 },
-        { name: 'Likely sale', price: 385000 },
-        { name: 'Low sale', price: 372000 },
+        { name: 'List price', price: 379900 },
+        { name: 'Likely sale', price: 374000 },
+        { name: 'Low sale', price: 367000 },
       ],
       closingDate: '2027-03-15',
       closingDayOwner: 'buyer',
