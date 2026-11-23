@@ -1,0 +1,15 @@
+address,status,list_price,sold_price,sqft,beds,baths,year_built,list_date,sale_date,days_on_market,lat,lng,notes
+407 Sample Orchard Ln,Sold,372000,366500,1780,3,2,1991,2026-07-02,2026-08-14,43,0.0006,-0.0010,Updated kitchen
+21 Placeholder Ct,Sold,389900,385000,1920,3,2,1996,2026-06-10,2026-07-22,42,0.0013,0.0008,Corner lot
+903 Fictional Ave,Sold,349000,338000,1690,3,1.5,1988,2026-08-01,2026-09-30,60,-0.0011,0.0014,Original finishes
+58 Demo Ridge Rd,Sold,415000,410000,2050,4,2.5,2001,2026-08-20,2026-09-25,36,0.0020,-0.0016,Finished basement
+130 Mock Willow Dr,Sold,379000,379000,1840,3,2,1994,2026-09-05,2026-10-03,28,-0.0004,-0.0007,Closest match
+77 Sample Orchard Ln,Sold,399500,384000,1875,4,2,1990,2026-05-15,2026-08-28,105,0.0003,-0.0013,Two price cuts
+266 Fictional Ave,Sold,362000,359500,1810,3,2,1993,2026-09-18,2026-10-24,36,-0.0016,0.0005,
+12 Placeholder Ct,Pending,392000,,1900,3,2,1997,2026-10-15,,22,0.0012,0.0010,Under contract
+544 Demo Ridge Rd,Pending,405000,,1990,4,2,2000,2026-10-02,,35,0.0018,-0.0020,Under contract
+88 Mock Willow Dr,Active,409000,,1860,3,2,1995,2026-09-12,,72,-0.0006,-0.0004,Staged
+305 Sample Orchard Ln,Active,389000,,1760,3,2,1989,2026-11-05,,18,0.0008,-0.0008,
+19 Fictional Ave,Active,429000,,2010,4,2.5,2003,2026-08-28,,87,-0.0013,0.0011,Priced high
+640 Demo Ridge Rd,Expired,449000,,1900,3,2,1995,2026-04-20,,180,0.0022,-0.0014,Expired unsold
+71 Placeholder Ct,Expired,419000,,1830,3,2,1992,2026-06-01,,150,0.0010,0.0012,Expired unsold

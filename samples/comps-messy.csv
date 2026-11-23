@@ -1,0 +1,10 @@
+Property Address,Status,List Price,Close Price,Sq Ft,Bedrooms,Baths,Year Built,Listed,Closed,DOM,Remarks
+"12 Test St, Unit 4",Closed,"$250,000","$245,500","1,150 sf",2,1.5,1985,3/1/2026,4/10/2026,,"Says ""as is"", cash only"
+88 Example Rd,Under Contract,$300k,,1900 sqft,3,2,,2026-09-01,,40,
+,Sold,200000,195000,1000,2,1,1970,,,,No address given
+5 Bad Ct,Sold,200000,,1200,2,1,1980,,,,Missing sold price
+6 Tiny Ct,Sold,200000,190000,18,2,1,1980,,,,Typo in sqft
+7 Odd Ct,Mystery,200000,190000,1200,2,1,1980,,,,Unknown status
+,,,,,,,,,,,
+9 Gone Way,Withdrawn,N/A,,1400,3,2,1999,,,,No list price
+10 Quiet Ln,Expired,"$399,000",,1,500 sf,3,2,2001,2026-01-05,,,
