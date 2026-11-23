@@ -31,12 +31,15 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 await page.goto(`${base}#net`);
 await page.waitForSelector('.sheet-page');
 await page.screenshot({ path: 'docs/preview.png' });
+await page.goto(`${base}#buyer`);
+await page.waitForSelector('#buyer-live .sheet-page');
+await page.screenshot({ path: 'docs/preview-buyer.png' });
 await page.goto(`${base}#cma`);
 await page.waitForSelector('#cma-out svg');
 await page.screenshot({ path: 'docs/preview-cma.png', fullPage: true });
 
 const counts = {};
-for (const mode of ['sheet', 'deck']) {
+for (const mode of ['sheet', 'buyer', 'deck']) {
   const p = await browser.newPage();
   await p.goto(`${base}?print=${mode}`);
   await p.waitForSelector('#print-root .page', { state: 'attached' });
@@ -44,6 +47,14 @@ for (const mode of ['sheet', 'deck']) {
   counts[mode] = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
   await p.close();
 }
-console.log(JSON.stringify({ pdfPages: counts, errors }));
+const narrow = await browser.newPage({ viewport: { width: 375, height: 800 } });
+const widths = {};
+for (const t of ['net', 'buyer', 'cma', 'deck']) {
+  await narrow.goto(`${base}#${t}`);
+  await narrow.reload();
+  await narrow.waitForTimeout(250);
+  widths[t] = await narrow.evaluate(() => document.documentElement.scrollWidth);
+}
+console.log(JSON.stringify({ pdfPages: counts, widthAt375: widths, errors }));
 await browser.close();
 server.close();

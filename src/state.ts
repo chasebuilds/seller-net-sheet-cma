@@ -1,4 +1,5 @@
 import sampleCsv from '../samples/comps-sample.csv?raw';
+import { type BuyerInputs, type BuyerLine, type BuyerGroup } from './buyer';
 import { type CompRow, type Subject, type AdjRates } from './cma';
 import { parseComps, type ParsedComp } from './csv';
 import { type CostLine, type Group, type Mode, type NetInputs, type Payoff, type ProrationSetup, GROUPS } from './netsheet';
@@ -9,6 +10,7 @@ export interface State {
   subject: Subject;
   cma: { source: string; comps: CompRow[]; rates: AdjRates };
   net: NetInputs;
+  buyer: BuyerInputs;
 }
 
 export const SAMPLE_CSV = sampleCsv;
@@ -23,6 +25,7 @@ export const newId = (p: string) => `${p}${Date.now().toString(36)}${(seq++).toS
 export function sampleState(): State {
   const comps = toRows(parseComps(sampleCsv).comps);
   const line = (id: string, group: Group, label: string, mode: Mode, value: number): CostLine => ({ id, group, label, mode, value, placeholder: true });
+  const bl = (id: string, group: BuyerGroup, label: string, mode: Mode, value: number): BuyerLine => ({ id, group, label, mode, value, placeholder: true });
   return {
     version: 1,
     agent: { name: 'Sample Agent', brokerage: 'Example Realty (invented)', preparedDate: '2026-11-23' },
@@ -40,6 +43,7 @@ export function sampleState(): State {
       ],
       closingDate: '2027-03-15',
       closingDayOwner: 'buyer',
+      prorationMethod: 'actual',
       payoffs: [
         { id: 'po1', label: 'First mortgage payoff (sample)', amount: 248310.55 },
         { id: 'po2', label: 'HELOC payoff (sample)', amount: 12400 },
@@ -59,6 +63,20 @@ export function sampleState(): State {
       prorations: [
         { id: 'pr1', enabled: true, label: 'Property tax', amount: 3285, periodStart: '2027-01-01', periodEnd: '2027-12-31', status: 'unpaid' },
         { id: 'pr2', enabled: true, label: 'HOA dues', amount: 120, periodStart: '2027-03-01', periodEnd: '2027-03-31', status: 'paid' },
+      ],
+    },
+    buyer: {
+      lines: [
+        bl('b1', 'down', 'Down payment', 'percent', 8),
+        bl('b2', 'loan', 'Lender origination and underwriting', 'percent', 0.65),
+        bl('b3', 'loan', 'Appraisal and credit report', 'flat', 610),
+        bl('b4', 'prepaid', 'Homeowners insurance, first year', 'flat', 1380),
+        bl('b5', 'prepaid', 'Prepaid loan interest', 'flat', 640),
+        bl('b6', 'escrow', 'Tax and insurance reserves', 'flat', 1960),
+        bl('b7', 'settlement', 'Lender title policy', 'flat', 1050),
+        bl('b8', 'settlement', 'Escrow and settlement fee, buyer share', 'flat', 650),
+        bl('b9', 'settlement', 'Recording fees', 'flat', 130),
+        bl('b10', 'credit', 'Earnest money already paid', 'flat', 4000),
       ],
     },
   };
@@ -87,6 +105,7 @@ export function normalizeState(raw: unknown): { state: State } | { error: string
   if (!isNum(subject.sqft) || !isStr(subject.address)) return { error: 'subject needs an address and square footage.' };
   const base = sampleState();
   const s = raw as unknown as State;
+  const bRaw = isObj(raw.buyer) && Array.isArray(raw.buyer.lines) ? (raw.buyer as unknown as BuyerInputs) : undefined;
   return {
     state: {
       version: 1,
@@ -96,10 +115,12 @@ export function normalizeState(raw: unknown): { state: State } | { error: string
       net: {
         ...s.net,
         closingDayOwner: n.closingDayOwner === 'seller' ? 'seller' : 'buyer',
+        prorationMethod: n.prorationMethod === '360' ? '360' : 'actual',
         lines: s.net.lines.map((l, i) => fill<CostLine>({ id: `l${i}`, placeholder: false }, l)),
         payoffs: s.net.payoffs.map((p, i) => fill<Payoff>({ id: `po${i}` }, p)),
         prorations: s.net.prorations.map((p, i) => fill<ProrationSetup>({ id: `pr${i}`, enabled: true, label: 'Proration', status: 'unpaid' }, p)),
       },
+      buyer: { lines: (bRaw ?? base.buyer).lines.map((l, i) => fill<BuyerLine>({ id: `b${i}`, placeholder: false }, l)) },
     },
   };
 }

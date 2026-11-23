@@ -1,5 +1,5 @@
-import { prorate, type Proration } from './dates';
-import { round2 } from './money';
+import { prorate, type Proration, type ProrationMethod } from './dates';
+import { divRound, round2, toCents } from './money';
 
 export type Mode = 'flat' | 'percent' | 'perThousand';
 export type Group = 'commission' | 'concession' | 'settlement' | 'transfer' | 'warranty' | 'repairs' | 'other';
@@ -30,15 +30,18 @@ export interface NetInputs {
   scenarios: Scenario[];
   closingDate: string;
   closingDayOwner: 'buyer' | 'seller';
+  prorationMethod: ProrationMethod;
   payoffs: Payoff[];
   lines: CostLine[];
   prorations: ProrationSetup[];
 }
 
-export function lineAmount(l: CostLine, price: number): number {
-  if (l.mode === 'flat') return round2(l.value);
-  if (l.mode === 'percent') return round2((price * l.value) / 100);
-  return round2((price / 1000) * l.value);
+export function lineAmount(l: { mode: Mode; value: number }, price: number): number {
+  // Whole-cent integer math, half a cent rounds up. The value is read to 4 decimal places.
+  const v = Math.round(l.value * 10000);
+  if (l.mode === 'flat') return divRound(v, 100) / 100;
+  if (l.mode === 'percent') return divRound(toCents(price) * v, 10000 * 100) / 100;
+  return divRound(toCents(price) * v, 10000 * 1000) / 100;
 }
 
 export function basisText(l: CostLine): string {
@@ -72,7 +75,7 @@ export function computeNet(n: NetInputs): NetResult {
     .filter((p) => p.enabled)
     .map((setup) => ({
       setup,
-      result: prorate({ amount: setup.amount, periodStart: setup.periodStart, periodEnd: setup.periodEnd, closing: n.closingDate, status: setup.status, closingDayOwner: n.closingDayOwner }),
+      result: prorate({ amount: setup.amount, periodStart: setup.periodStart, periodEnd: setup.periodEnd, closing: n.closingDate, status: setup.status, closingDayOwner: n.closingDayOwner, method: n.prorationMethod }),
     }));
   const prorationNet = round2(prorations.reduce((s, p) => s + p.result.effect, 0));
   const payoffTotal = round2(n.payoffs.reduce((s, p) => s + p.amount, 0));

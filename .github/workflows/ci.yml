@@ -17,3 +17,6 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm run benchmark
+      - name: BENCHMARK.md and the README measured line are current
+        run: git diff --exit-code -- BENCHMARK.md README.md

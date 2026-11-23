@@ -20,3 +20,12 @@ export function pct(x: number, digits = 1): string {
 export function esc(s: unknown): string {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
 }
+
+/** Integer division rounded half away from zero, so a half cent always rounds up in size. Inputs must be integers. */
+export function divRound(num: number, den: number): number {
+  const sign = num < 0 ? -1 : 1;
+  return (sign * Math.floor((2 * Math.abs(num) + den) / (2 * den)));
+}
+
+/** Dollars to whole cents. */
+export const toCents = (dollars: number): number => Math.round(dollars * 100);

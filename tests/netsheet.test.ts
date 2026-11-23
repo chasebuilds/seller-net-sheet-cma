@@ -10,6 +10,7 @@ const net: NetInputs = {
   ],
   closingDate: '2027-07-11',
   closingDayOwner: 'buyer',
+  prorationMethod: 'actual',
   payoffs: [{ id: 'p', label: 'Mortgage', amount: 250000 }],
   lines: [
     { id: 'a', group: 'commission', label: 'Listing', mode: 'percent', value: 3, placeholder: false },

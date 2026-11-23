@@ -2,6 +2,7 @@ import { locationPlot, ppsfChart, rangeBar, statusChart, STATUS_LABEL } from './
 import { computeCma, type CmaResult } from './cma';
 import { fmtDate, parseDate } from './dates';
 import { esc, money, money0, pct } from './money';
+import { computeBuyer } from './buyer';
 import { computeNet, type NetResult } from './netsheet';
 import type { State } from './state';
 
@@ -37,7 +38,7 @@ export function sheetPage(s: State, r: NetResult, opts: { live?: boolean } = {})
   const netRow = `<tr class="net"><td class="l" colspan="2">Estimated net to seller</td>${cols.map((c) => `<td>${money(c.net)}</td>`).join('')}</tr>`;
   const pctRow = `<tr class="muted"><td class="l" colspan="2">Net as a share of sale price</td>${cols.map((c) => `<td>${pct(c.netPct)}</td>`).join('')}</tr>`;
   const detail = r.prorations.length
-    ? `<div class="detail"><h4>Proration detail (closing ${dateText(s.net.closingDate)}; the closing day belongs to the ${s.net.closingDayOwner})</h4>${r.prorations.map((p) => `<p><b>${esc(p.setup.label)}.</b> ${esc(p.result.formula)}${p.result.note ? ` ${esc(p.result.note)}` : ''}</p>`).join('')}</div>`
+    ? `<div class="detail"><h4>Proration detail (closing ${dateText(s.net.closingDate)}; the closing day belongs to the ${s.net.closingDayOwner}; ${s.net.prorationMethod === "360" ? "360-day banker year, 30/360" : "actual calendar days"})</h4>${r.prorations.map((p) => `<p><b>${esc(p.setup.label)}.</b> ${esc(p.result.formula)}${p.result.note ? ` ${esc(p.result.note)}` : ''}</p>`).join('')}</div>`
     : '';
   const ph = r.placeholderCount ? `<p class="warnline">* ${r.placeholderCount} cost line(s) still use a placeholder amount that has not been confirmed. Replace them with local figures before showing this sheet to a client.</p>` : '';
   return `<section class="page sheet-page${opts.live ? ' live' : ''}">
@@ -111,4 +112,32 @@ export function cmaSummary(cma: CmaResult, s: State): string {
   const rng = cma.range;
   return `<div class="tiles">${tile('Listings', String(cma.rows.length))}${tile('Sold median $/sq ft', sold?.medianPpsf !== undefined ? `$${sold.medianPpsf.toFixed(0)}` : 'n/a')}${tile('Median days on market (sold)', cma.soldDomMedian !== undefined ? cma.soldDomMedian.toFixed(0) : 'n/a')}${tile('Median list-to-sale', cma.ltsrMedian !== undefined ? pct(cma.ltsrMedian * 100) : 'n/a')}</div>
 <div class="rangebox">${rng ? `<div class="rl">Suggested list price range for ${esc(s.subject.address)}</div><div class="rv">${money0(rng.low)} to ${money0(rng.high)}</div><div class="rn">Middle ${money0(rng.mid)} from ${rng.n} sold comp(s). ${esc(rng.method)}</div>` : '<div class="rl">Suggested list price range</div><div class="rn">Tick at least one sold comp.</div>'}${cma.warnings.map((w) => `<div class="warnline">${esc(w)}</div>`).join('')}</div>`;
+}
+
+export function buyerPage(s: State, opts: { live?: boolean } = {}): string {
+  const net = computeNet(s.net);
+  const cols = computeBuyer(s.buyer, s.net, net);
+  const n = cols.length;
+  const row = (label: string, basis: string, f: (c: (typeof cols)[number]) => number, cls = '') => `<tr class="${cls}"><td class="l">${label}</td><td class="basis">${basis}</td>${cols.map((c) => `<td class="${f(c) < 0 ? 'neg' : ''}">${money(f(c))}</td>`).join('')}</tr>`;
+  const groups = (cols[0]?.groups ?? [])
+    .map((g, gi) => {
+      const sign = g.group === 'credit' ? -1 : 1;
+      const lines = g.lines
+        .map((l, li) => `<tr><td class="l">${esc(l.label)}${l.placeholder ? '<span class="ph">*</span>' : ''}</td><td class="basis">${esc(l.basis)}</td>${cols.map((c) => `<td class="${sign < 0 ? 'neg' : ''}">${money(sign * (c.groups[gi]?.lines[li]?.amount ?? 0))}</td>`).join('')}</tr>`)
+        .join('');
+      return `<tr class="grp"><td class="l" colspan="${n + 2}">${esc(g.label)}</td></tr>${lines}`;
+    })
+    .join('');
+  const ph = s.buyer.lines.filter((l) => l.placeholder).length;
+  return `<section class="page sheet-page${opts.live ? ' live' : ''}">
+<header class="ph-head"><div><h2>Buyer estimated cash to close</h2><div class="sub">${esc(s.subject.address)} &middot; estimated closing ${dateText(s.net.closingDate)}</div></div><div class="who">${esc(s.agent.name)}<br>${esc(s.agent.brokerage)}</div></header>
+<table class="nt"><tr><th class="l">Line</th><th class="l basis">Basis</th>${cols.map((c) => `<th>${esc(c.name)}</th>`).join('')}</tr>
+${row('Purchase price', '', (c) => c.price, 'strong')}${row('Loan amount (price minus down payment)', '', (c) => c.loanAmount, 'muted')}
+${groups}${row('Total charges', '', (c) => c.charges, 'sub')}
+<tr class="grp"><td class="l" colspan="${n + 2}">Credits from the seller side of this deal</td></tr>
+${row('Seller concessions (from the net sheet)', 'net sheet', (c) => -c.sellerConcessions)}${row('Prorations, buyer view (credit is negative)', 'net sheet, same method', (c) => c.prorations)}
+<tr class="net"><td class="l" colspan="2">Estimated cash to close</td>${cols.map((c) => `<td>${money(c.cashToClose)}</td>`).join('')}</tr></table>
+${ph ? `<p class="warnline">* ${ph} line(s) still use a placeholder amount that has not been confirmed. Replace them with the lender's estimate before showing this sheet to a client.</p>` : ''}
+<p class="disc">Estimate only, not a loan estimate or a quote. The lender's Closing Disclosure and the closing agent's settlement statement are the real numbers. Credits and deductions are shown as negatives.</p>
+</section>`;
 }

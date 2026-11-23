@@ -5,7 +5,8 @@ import { parseComps } from './csv';
 import { calendarYearOf, monthOf } from './dates';
 import { esc, money0 } from './money';
 import { computeNet, GROUPS, type Group } from './netsheet';
-import { cmaSummary, deck, sheetPage } from './render';
+import { buyerPage, cmaSummary, deck, sheetPage } from './render';
+import { BUYER_GROUPS, type BuyerGroup } from './buyer';
 import { newId, normalizeState, sampleState, SAMPLE_CSV, toRows, type State } from './state';
 
 const KEY = 'seller-net-sheet-cma:v1';
@@ -25,7 +26,9 @@ function loadInitial(): State {
 }
 
 let state: State = loadInitial();
-let tab: 'net' | 'cma' | 'deck' = 'net';
+type Tab = 'net' | 'buyer' | 'cma' | 'deck';
+const TABS: Tab[] = ['net', 'buyer', 'cma', 'deck'];
+let tab: Tab = 'net';
 let parseWarnings: string[] = [];
 
 function persist() {
@@ -59,11 +62,21 @@ function netForm(): string {
     )
     .join('');
   return `<div class="card"><h3>Sale price scenarios</h3><div class="grid3">${scen}</div>
-<div class="grid2"><div class="field"><label>Closing date</label>${date('net.closingDate', n.closingDate)}</div><div class="field"><label>Closing day belongs to</label>${sel('net.closingDayOwner', n.closingDayOwner, [['buyer', 'Buyer (seller owns through the day before)'], ['seller', 'Seller (seller owns through closing day)']])}</div></div></div>
+<div class="grid2"><div class="field"><label>Closing date</label>${date('net.closingDate', n.closingDate)}</div><div class="field"><label>Closing day belongs to</label>${sel('net.closingDayOwner', n.closingDayOwner, [['buyer', 'Buyer (seller owns through the day before)'], ['seller', 'Seller (seller owns through closing day)']])}</div><div class="field"><label>Proration method</label>${sel('net.prorationMethod', n.prorationMethod, [['actual', 'Actual days (365 or 366 a year)'], ['360', '360-day banker year (30/360)']])}</div></div></div>
 <div class="card"><h3>Mortgage and lien payoffs</h3>${payoffs}<button class="mini" data-act="add-payoff">Add payoff</button></div>
 <div class="card"><h3>Costs of sale</h3><p class="hint">Every starting value below is a <b>placeholder</b>. Replace each with the agreement, quote or local figure for this sale. Commission is split into listing and buyer side lines, so each has its own value.</p><div class="tscroll"><table class="lines"><thead><tr><th>Line</th><th>Group</th><th>How it is figured</th><th>Value</th><th></th><th></th></tr></thead><tbody>${lines}</tbody></table></div>
 <div class="addrow"><select id="new-group">${GROUPS.map((g) => `<option value="${g.id}">${g.label}</option>`).join('')}</select><button class="mini" data-act="add-line">Add line</button></div></div>
 <div class="card"><h3>Prorations (property tax, HOA, other)</h3><p class="hint">Actual-day method: the bill is split by calendar days in its period, so leap years count 366 days. The formula and day count show under each item.</p>${prs}<button class="mini" data-act="add-pr">Add proration</button></div>`;
+}
+
+function buyerForm(): string {
+  const lines = state.buyer.lines
+    .map(
+      (l, i) => `<tr><td>${txt(`buyer.lines.${i}.label`, l.label)}</td><td>${sel(`buyer.lines.${i}.group`, l.group, BUYER_GROUPS.map((g) => [g.id, g.label]))}</td><td>${sel(`buyer.lines.${i}.mode`, l.mode, [['flat', 'Flat $'], ['percent', '% of price'], ['perThousand', '$ per $1,000']])}</td><td>${num(`buyer.lines.${i}.value`, l.value)}</td><td>${l.placeholder ? `<span class="badge" data-badge="bline-${i}">placeholder</span>` : ''}</td><td><button class="x" data-act="del-bline" data-i="${i}" aria-label="Remove line">Remove</button></td></tr>`,
+    )
+    .join('');
+  return `<div class="card"><h3>Buyer side</h3><p class="hint">Uses the same three sale prices, closing date, seller concessions and prorations as the net sheet. Every starting value below is a <b>placeholder</b>: replace each with the lender estimate. Cash to close is an estimate, not a loan estimate.</p><div class="tscroll"><table class="lines"><thead><tr><th>Line</th><th>Group</th><th>How it is figured</th><th>Value</th><th></th><th></th></tr></thead><tbody>${lines}</tbody></table></div>
+<div class="addrow"><select id="new-bgroup">${BUYER_GROUPS.map((g) => `<option value="${g.id}">${g.label}</option>`).join('')}</select><button class="mini" data-act="add-bline">Add line</button></div></div>`;
 }
 
 function cmaForm(): string {
@@ -90,11 +103,12 @@ function cmaForm(): string {
 function shell() {
   $('#app').innerHTML = `<div class="backdrop"></div><div class="wrap">
 <header class="glass bar"><div class="brand"><b>CB</b><span>Seller net sheet and CMA</span></div>
-<nav class="tabs" role="tablist"><button data-tab="net" role="tab">Net sheet</button><button data-tab="cma" role="tab">CMA</button><button data-tab="deck" role="tab">Presentation</button></nav>
+<nav class="tabs" role="tablist"><button data-tab="net" role="tab">Net sheet</button><button data-tab="buyer" role="tab">Buyer cash</button><button data-tab="cma" role="tab">CMA</button><button data-tab="deck" role="tab">Presentation</button></nav>
 <div class="acts"><button class="pill" data-act="save">Save JSON</button><button class="pill" data-act="open">Open JSON</button><button class="pill ghost" data-act="reset">Reset to sample</button><input type="file" id="json-file" accept="application/json,.json" hidden></div></header>
 <p class="banner">A CMA is a broker opinion for pricing, not an appraisal. A USPAP appraisal needs a licensed or certified appraiser. Net sheet figures are estimates: the closing agent settlement statement is the real number. Sample data is invented.</p>
 <main>
 <section id="tab-net" class="tab"><div class="cols"><div id="net-form" class="colform"></div><div class="colout"><div class="outhead"><h3>Net sheet</h3><button class="pill solid" data-act="print-sheet">Print one page</button></div><div id="net-live"></div></div></div></section>
+<section id="tab-buyer" class="tab"><div class="cols"><div id="buyer-form" class="colform"></div><div class="colout"><div class="outhead"><h3>Buyer cash to close</h3><button class="pill solid" data-act="print-buyer">Print one page</button></div><div id="buyer-live"></div></div></div></section>
 <section id="tab-cma" class="tab"><div id="cma-form"></div><div class="card" id="cma-out"></div></section>
 <section id="tab-deck" class="tab"><div class="card"><div class="outhead"><h3>Listing presentation</h3><button class="pill solid" data-act="print-deck">Print presentation (7 pages)</button></div><p class="hint">Cover, subject, market activity, comps, charts, pricing and net sheet. Use your browser print dialog: choose Save as PDF, Letter, no headers and footers.</p></div><div id="deck-preview" class="pages"></div></section>
 </main></div>`;
@@ -102,6 +116,7 @@ function shell() {
 
 function renderForms() {
   $('#net-form').innerHTML = netForm();
+  $('#buyer-form').innerHTML = buyerForm();
   $('#cma-form').innerHTML = cmaForm();
   $('#parse-warn').innerHTML = parseWarnings.length ? `<ul class="warns">${parseWarnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : '';
   refresh();
@@ -111,6 +126,7 @@ function refresh() {
   const net = computeNet(state.net);
   const cma = computeCma(state.cma.comps, state.subject, state.cma.rates);
   $('#net-live').innerHTML = sheetPage(state, net, { live: true });
+  $('#buyer-live').innerHTML = buyerPage(state, { live: true });
   net.prorations.forEach((p) => {
     const idx = state.net.prorations.indexOf(p.setup);
     const el = document.querySelector(`[data-pr="${idx}"]`);
@@ -137,7 +153,7 @@ function refresh() {
   persist();
 }
 
-function setTab(t: typeof tab) {
+function setTab(t: Tab) {
   tab = t;
   document.querySelectorAll<HTMLElement>('.tab').forEach((el) => (el.hidden = el.id !== `tab-${t}`));
   document.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
@@ -155,6 +171,12 @@ function setPath(path: string, v: unknown) {
     const l = state.net.lines[Number(line[1])];
     if (l) l.placeholder = false;
     document.querySelector(`[data-badge="line-${line[1]}"]`)?.remove();
+  }
+  const bl = /^buyer\.lines\.(\d+)\.(value|mode)$/.exec(path);
+  if (bl) {
+    const l = state.buyer.lines[Number(bl[1])];
+    if (l) l.placeholder = false;
+    document.querySelector(`[data-badge="bline-${bl[1]}"]`)?.remove();
   }
   const rate = /^cma\.rates\.(\w+)$/.exec(path);
   if (rate) {
@@ -201,11 +223,14 @@ document.addEventListener('input', (e) => {
 document.addEventListener('click', async (e) => {
   const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act],[data-tab]');
   if (!el) return;
-  if (el.dataset.tab) return setTab(el.dataset.tab as typeof tab);
+  if (el.dataset.tab) return setTab(el.dataset.tab as Tab);
   const i = Number(el.dataset.i);
   switch (el.dataset.act) {
     case 'del-line': state.net.lines.splice(i, 1); return renderForms();
     case 'add-line': state.net.lines.push({ id: newId('l'), group: ($<HTMLSelectElement>('#new-group').value as Group), label: 'New line', mode: 'flat', value: 0, placeholder: false }); return renderForms();
+    case 'del-bline': state.buyer.lines.splice(i, 1); return renderForms();
+    case 'add-bline': state.buyer.lines.push({ id: newId('b'), group: $<HTMLSelectElement>('#new-bgroup').value as BuyerGroup, label: 'New line', mode: 'flat', value: 0, placeholder: false }); return renderForms();
+    case 'print-buyer': return printHtml(buyerPage(state));
     case 'del-payoff': state.net.payoffs.splice(i, 1); return renderForms();
     case 'add-payoff': state.net.payoffs.push({ id: newId('po'), label: 'Payoff', amount: 0 }); return renderForms();
     case 'del-pr': state.net.prorations.splice(i, 1); return renderForms();
@@ -275,11 +300,12 @@ window.addEventListener('afterprint', () => {
 shell();
 renderForms();
 const initial = location.hash.slice(1);
-setTab(initial === 'cma' || initial === 'deck' ? initial : 'net');
+setTab(TABS.includes(initial as Tab) ? (initial as Tab) : 'net');
 const printMode = new URLSearchParams(location.search).get('print');
 if (printMode === 'deck') $('#print-root').innerHTML = deck(state);
+if (printMode === 'buyer') $('#print-root').innerHTML = buyerPage(state);
 if (printMode === 'sheet') $('#print-root').innerHTML = sheetPage(state, computeNet(state.net));
 window.addEventListener('hashchange', () => {
   const h = location.hash.slice(1);
-  if ((h === 'net' || h === 'cma' || h === 'deck') && h !== tab) setTab(h);
+  if (TABS.includes(h as Tab) && h !== tab) setTab(h as Tab);
 });

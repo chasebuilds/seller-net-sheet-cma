@@ -1,4 +1,4 @@
-import { money, round2 } from './money';
+import { divRound, money, round2, toCents } from './money';
 
 const DAY = 86_400_000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -69,9 +69,14 @@ export interface ProrationInput {
   /** unpaid: the bill for the period is still to be paid, so the seller owes their share. paid: already paid, so the buyer reimburses the seller for the buyer share. */
   status: 'unpaid' | 'paid';
   closingDayOwner: 'buyer' | 'seller';
+  /** actual: real calendar days. 360: 30E/360, every month counts 30 days and a 31st counts as the 30th (the banker's year). Default actual. */
+  method?: ProrationMethod;
 }
 
+export type ProrationMethod = 'actual' | '360';
+
 export interface Proration {
+  method: ProrationMethod;
   ok: boolean;
   error?: string;
   note?: string;
@@ -87,8 +92,17 @@ export interface Proration {
 }
 
 const bad = (error: string): Proration => ({
-  ok: false, error, periodDays: 0, sellerDays: 0, buyerDays: 0, dailyRate: 0, sellerShare: 0, buyerShare: 0, effect: 0, formula: error,
+  method: 'actual', ok: false, error, periodDays: 0, sellerDays: 0, buyerDays: 0, dailyRate: 0, sellerShare: 0, buyerShare: 0, effect: 0, formula: error,
 });
+
+/** 30E/360 day count from a to b: every month is 30 days, a 31st counts as the 30th. */
+export function days360(a: number, b: number): number {
+  const x = new Date(a);
+  const y = new Date(b);
+  const d1 = Math.min(x.getUTCDate(), 30);
+  const d2 = Math.min(y.getUTCDate(), 30);
+  return (y.getUTCFullYear() - x.getUTCFullYear()) * 360 + (y.getUTCMonth() - x.getUTCMonth()) * 30 + (d2 - d1);
+}
 
 /**
  * Actual-day proration. Days in the period come from the real calendar (a leap-year period is 366 days).
@@ -101,22 +115,24 @@ export function prorate(i: ProrationInput): Proration {
   if (start === null || end === null) return bad('Enter a valid period start and end date.');
   if (closing === null) return bad('Enter a valid closing date.');
   if (end < start) return bad('Period end is before period start.');
-  const periodDays = daysBetween(start, end) + 1;
-  const raw = daysBetween(start, closing) + (i.closingDayOwner === 'seller' ? 1 : 0);
+  const method: ProrationMethod = i.method ?? 'actual';
+  const count = method === '360' ? days360 : daysBetween;
+  const periodDays = method === '360' ? days360(start, end + DAY) : daysBetween(start, end) + 1;
+  const raw = count(start, closing) + (i.closingDayOwner === 'seller' ? 1 : 0);
   const sellerDays = Math.min(periodDays, Math.max(0, raw));
   const buyerDays = periodDays - sellerDays;
-  const sellerShare = round2((i.amount * sellerDays) / periodDays);
+  const sellerShare = divRound(toCents(i.amount) * sellerDays, periodDays) / 100;
   const buyerShare = round2(i.amount - sellerShare);
   const effect = i.status === 'unpaid' ? -sellerShare : buyerShare;
   const dailyRate = i.amount / periodDays;
   let note: string | undefined;
   if (raw < 0) note = 'Closing is before the period starts, so the seller owns 0 days.';
   else if (raw > periodDays) note = 'Closing is after the period ends, so the seller owns the whole period.';
-  const through = sellerDays > 0 ? `${fmtDate(start)} through ${fmtDate(start + (sellerDays - 1) * DAY)}` : 'no days';
-  const calc = `${money(i.amount)} / ${periodDays} days = ${dailyRate.toFixed(4)} per day. Seller owns ${sellerDays} days (${through}): ${money(i.amount)} x ${sellerDays} / ${periodDays} = ${money(sellerShare)}.`;
+  const through = method === '360' ? `30/360 count from ${fmtDate(start)} to closing ${fmtDate(closing)}` : sellerDays > 0 ? `${fmtDate(start)} through ${fmtDate(start + (sellerDays - 1) * DAY)}` : 'no days';
+  const calc = `${money(i.amount)} / ${periodDays} days${method === '360' ? ' (30/360, every month counts 30 days)' : ''} = ${dailyRate.toFixed(4)} per day. Seller owns ${sellerDays} days (${through}): ${money(i.amount)} x ${sellerDays} / ${periodDays} = ${money(sellerShare)}.`;
   const who =
     i.status === 'unpaid'
       ? ` Not yet paid, so the seller owes ${money(sellerShare)} (a deduction).`
       : ` Already paid, so the buyer reimburses ${money(buyerShare)} for ${buyerDays} buyer days (a credit).`;
-  return { ok: true, note, periodDays, sellerDays, buyerDays, dailyRate, sellerShare, buyerShare, effect, formula: calc + who };
+  return { method, ok: true, note, periodDays, sellerDays, buyerDays, dailyRate, sellerShare, buyerShare, effect, formula: calc + who };
 }
