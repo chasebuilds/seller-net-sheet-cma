@@ -135,7 +135,7 @@ function dateField(raw: string | undefined): string | undefined {
 }
 
 export function parseComps(input: string): ParseResult {
-  const text = input.replace(/^﻿/, '');
+  const text = input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
   const warnings: string[] = [];
   const empty = (rowsRead: number): ParseResult => ({ comps: [], warnings, rowsRead, mapped: {} });
   if (!text.trim()) {
